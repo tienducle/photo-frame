@@ -1,0 +1,30 @@
+{
+  "name": "photo-frame",
+  "version": "0.1.0",
+  "description": "A custom photo frame card for Home Assistant",
+  "main": "photo-frame.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tienducle/photo-frame.git"
+  },
+  "keywords": [
+    "photo",
+    "frame",
+    "photoframe",
+    "homeassistant",
+    "home-assistant",
+    "custom-card",
+    "hacs",
+    "lovelace"
+  ],
+  "author": "Tien Duc Le",
+  "license": "MIT",
+  "bugs":
+  {
+    "url": "https://github.com/tienducle/photo-frame/issues"
+  },
+  "homepage": "https://github.com/tienducle/photo-frame#readme",
+  "devDependencies": {},
+  "dependencies": {}
+}
