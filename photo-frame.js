@@ -723,7 +723,7 @@ customElements.define( "photo-frame", PhotoFrame );
 window.customCards = window.customCards || []
 window.customCards.push({
     type: "photo-frame",
-    name: "PhotoFrame (v0.1.0)",
+    name: "PhotoFrame",
     preview: false,
     description: "Displays a random image from a configured folder."
 });
