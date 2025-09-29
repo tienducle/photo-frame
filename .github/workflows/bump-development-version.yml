@@ -1,0 +1,40 @@
+name: Bump development version
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - 'main'
+
+jobs:
+  bump-development-version:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.title, 'Finish release ')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Bump development version
+        run: |
+          git checkout -b bump
+          git merge origin/main
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{printf "%d.%d.%d-SNAPSHOT", $1, $2+1, 0}')
+          npm version --no-git-tag-version $NEXT_VERSION
+          git commit -am "Set next development version to $NEXT_VERSION"
+          git push origin bump
+          gh pr create --base develop --head bump --title "Set next development version to $NEXT_VERSION" --body "Automated version bump after release of $CURRENT_VERSION" --label "release-creation"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
