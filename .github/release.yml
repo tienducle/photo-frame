@@ -1,0 +1,19 @@
+changelog:
+  exclude:
+    labels:
+      - release-creation
+  categories:
+    - title: Breaking Changes
+      labels:
+        - Semver-Major
+        - breaking-change
+    - title: New Features
+      labels:
+        - Semver-Minor
+        - enhancement
+    - title: Bug fixes
+      labels:
+        - bug
+    - title: Other Changes
+      labels:
+        - "*"
