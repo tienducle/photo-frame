@@ -782,7 +782,7 @@ class PhotoFrame extends HTMLElement
      * Saves the given state to the internal state variables.
      *
      * @param state {State}
-     * @return {State}
+     * @returns {State}
      */
     saveState( state )
     {
