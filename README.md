@@ -1,7 +1,7 @@
 # PhotoFrame
 #### A custom photo frame card for Home Assistant
 
-![Automatic slideshow](docs/images/preview.gif)
+![Automatic slideshow](docs/images/preview2.gif)
 ![Manual navigation](docs/images/manual-navigation.gif)
 
 # Features
@@ -13,6 +13,7 @@
 - Other:
   - Configurable slideshow interval
   - Configurable delay when manually navigating
+  - NEW: Crossfade transition
   - File extension filter (jpg, jpeg, png, gif, webp, heic)
   - Random or filename-based slideshow order
   - Upload pictures from your phone via Media Browser panel
