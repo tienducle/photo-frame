@@ -10,10 +10,11 @@
   - *"Files served from `media` are protected by Home Assistant authentication unlike those served from `www`."*
 - Navigate back and forth within recent images
 - Works with Home Assistant Section, Masonry and Single-Panel layouts
+- NEW: Improved support for existing (large) image collections (requires [ha-list-media integration](https://github.com/tienducle/ha-list-media))
 - Other:
   - Configurable slideshow interval
   - Configurable delay when manually navigating
-  - NEW: Crossfade transition
+  - Crossfade transition
   - File extension filter (jpg, jpeg, png, gif, webp, heic)
   - Random or filename-based slideshow order
   - Upload pictures from your phone via Media Browser panel
@@ -51,9 +52,31 @@ sensor:
 
 # Usage
 
+## Home Assistant managed image collection
+
+This works best for new image collections, where you (and your household members) want to upload images via Home Assistant Media Browser panel.
+
 1. Upload some images to your `/media/photo-frame-images` folder
 2. Add PhotoFrame card to your dashboard
 3. If you followed the Home Assistant Configuration above, the default sensor name should match and the card should already display your images
+
+## Other image collections
+
+The default [HA folder integration](https://www.home-assistant.io/integrations/folder/) does not support nested folders. Since the integration is marked as legacy, I have created a custom integration called [ha-list-media](https://github.com/tienducle/ha-list-media) as a substitute.
+1. Follow instructions at [ha-list-media integration](https://github.com/tienducle/ha-list-media) to install the custom integration
+
+In the following example, a samba share is configured as a new Home Assistant media source, named `my-nas-photo-collection`:
+
+   - Open `Home Assistant -> Settings -> System -> Storage`
+   - Click on `Add network storage`
+   - Enter name: `my-nas-photo-collection`
+   - Select usage: `Media``
+   - Configure server, remote share, credentials according to your setup
+   - Click on `Save`
+
+Now the folder should be visible in the Home Assistant Media Browser panel.
+
+Open the PhotoFrame card configuration and enable the `Use custom list media integration` option. Finally, enter the name of the configured media source, e.g. `my-nas-photo-collection`.
 
 # Troubleshooting
 
