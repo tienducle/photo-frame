@@ -2,11 +2,12 @@ const DEFAULT_CONFIG = {
     hide_card_header          : false,
     card_header               : "PhotoFrame",
     card_mode                 : "grid",
+    aspect_ratio              : '3/2',
+    rounded_corners           : true,
     images_sensor             : 'sensor.photo_frame_images',
     slide_show_interval       : 2000,
     slide_show_mode           : "random",
     delay_on_manual_navigation: 10000,
-    aspect_ratio              : '3/2',
     file_type_filter          : 'jpg,jpeg,png,gif,webp,heic',
     file_type_filter_regexp   : undefined,
     debug_logs_enabled        : false,
@@ -273,6 +274,7 @@ class PhotoFrame extends HTMLElement
         this._photoContainerRef.style.alignItems = "center";
         this._photoContainerRef.style.justifyContent = "center";
         this._photoContainerRef.style.position = "relative"; // for overlay buttons
+        this._photoContainerRef.style.borderRadius = this._config.rounded_corners ? "12px" : "0";
 
         // Create navigation buttons
         this._prevButtonRef = ImageNavButton.create( 'Previous image', 'left', '‹' );
@@ -846,7 +848,8 @@ class PhotoFrame extends HTMLElement
                         [
                             { name: "card_header", selector: { text: {} } },
                             { name: "card_mode", required: true, selector: { select: { options: [ "grid", "single-card-panel" ], mode: "dropdown" } } },
-                            { name: "aspect_ratio", required: true, selector: { select: { options: [ "16/10", "16/9", "4/3", "3/2", "1/1", "2/3", "3/4", "9/16", "10/16" ], mode: "dropdown" } } }
+                            { name: "aspect_ratio", required: true, selector: { select: { options: [ "16/10", "16/9", "4/3", "3/2", "1/1", "2/3", "3/4", "9/16", "10/16" ], mode: "dropdown" } } },
+                            { name: "rounded_corners", selector: { boolean: { } } }
                         ]
                 },
                 { name: "images_sensor", required: true, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
@@ -888,6 +891,7 @@ class PhotoFrame extends HTMLElement
                 if (schema.name === "card_header") return "Card Header";
                 if (schema.name === "card_mode") return "Card Mode";
                 if (schema.name === "aspect_ratio") return "Aspect Ratio";
+                if (schema.name === "rounded_corners") return "Rounded Corners";
                 if (schema.name === "images_sensor") return "Images Sensor Entity";
                 if (schema.name === "slide_show_interval") return "Slide Show Interval";
                 if (schema.name === "slide_show_mode") return "Slide Show Mode";
@@ -919,6 +923,8 @@ class PhotoFrame extends HTMLElement
                         return "'grid' can crop images while 'single-card-panel' will letterbox them";
                     case "aspect_ratio":
                         return "Aspect ratio of the display area (images are fit within this ratio).";
+                    case "rounded_corners":
+                        return "";
                     case "images_sensor":
                         return "Entity ID of the folder sensor that provides the list of images";
                     case "slide_show_interval":
