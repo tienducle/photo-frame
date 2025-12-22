@@ -19,7 +19,8 @@ const DEFAULT_CONFIG = {
     grid_options                      : {
         columns: 12,
         rows   : "auto"
-    }
+    },
+    image_list_refresh_interval       : 60000 // 60 seconds
 };
 
 class PhotoFrame extends HTMLElement
@@ -37,7 +38,7 @@ class PhotoFrame extends HTMLElement
         this._isUpdateInProgress = false;
 
         // timestamp of the last image list sensor change
-        this._imageListLastUpdatedTimestamp = "";
+        this._imageListLastUpdatedTimestamp = 0;
         this._imageListLastChangedMarker = "";
         // list of images extracted from the image list sensor
         this._imageList = [];
@@ -188,7 +189,7 @@ class PhotoFrame extends HTMLElement
         this._imageList = [];
         this._indexHistory = [];
         this._indexOffset = 0;
-        this._imageListLastUpdatedTimestamp = "";
+        this._imageListLastUpdatedTimestamp = 0;
         this._imageListLastChangedMarker = "";
 
         // Reset update flags
@@ -656,9 +657,9 @@ class PhotoFrame extends HTMLElement
     {
         // only refresh if this._imageListLastUpdatedTimestamp is older than 60 seconds
         const now = Date.now();
-        if ( now - this._imageListLastUpdatedTimestamp < 60000 )
+        if ( now - this._imageListLastUpdatedTimestamp < cardConfig.image_list_refresh_interval )
         {
-            this.log( "Image list was updated less than 60 seconds ago. Skipping refresh." );
+            this.log( `Image list was updated less than ${cardConfig.image_list_refresh_interval / 1000} seconds ago. Skipping refresh.` );
             return state;
         }
 
@@ -907,7 +908,7 @@ class PhotoFrame extends HTMLElement
                             { name: "rounded_corners", selector: { boolean: { } } }
                         ]
                 },
-                { name: "images_sensor", required: true, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
+                { name: "images_sensor", required: false, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
                 {
                     name: "",
                     type: "grid",
@@ -936,7 +937,7 @@ class PhotoFrame extends HTMLElement
                     schema:
                         [
                             { name: "use_custom_media_files_integration", selector: { boolean: { } } },
-                            { name: "media_folder", selector: { text: { default: "photo-frame-images" } } }
+                            { name: "media_folder", selector: { text: { default: "/media/photo-frame-images" } } }
                         ]
                 }
             ],
@@ -1012,7 +1013,7 @@ class PhotoFrame extends HTMLElement
                     case "use_custom_media_files_integration":
                         return "EXPERIMENTAL: Use custom media_files integration. Requires https://github.com/tienducle/ha-media-files. See README.md for details.";
                     case "media_folder":
-                        return "The path to the custom folder inside the media directory, e.g. /media/photo-frame-images.";
+                        return "Relative or full path to a photos folder inside the media directory, e.g. /media/photo-frame-images or photo-frame-images";
                 }
                 return undefined;
             },
@@ -1066,14 +1067,14 @@ class State
 {
     /**
      *
-     * @param state {{imageList: string[]|undefined, indexHistory: number[]|undefined, indexOffset: number, imageListLastUpdatedTimestamp: string|undefined, imageListLastChangedMarker: string|undefined, hasNewImages: boolean}}
+     * @param state {{imageList: string[]|undefined, indexHistory: number[]|undefined, indexOffset: number, imageListLastUpdatedTimestamp: number|undefined, imageListLastChangedMarker: string|undefined, hasNewImages: boolean}}
      */
     constructor( state )
     {
         this.imageList = state.imageList || [];
         this.indexHistory = state.indexHistory || [];
         this.indexOffset = state.indexOffset;
-        this.imageListLastUpdatedTimestamp = state.imageListLastUpdatedTimestamp || "";
+        this.imageListLastUpdatedTimestamp = state.imageListLastUpdatedTimestamp || 0;
         this.imageListLastChangedMarker = state.imageListLastChangedMarker || "";
         this.hasNewImages = false;
     }
