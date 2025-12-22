@@ -10,7 +10,7 @@
   - *"Files served from `media` are protected by Home Assistant authentication unlike those served from `www`."*
 - Navigate back and forth within recent images
 - Works with Home Assistant Section, Masonry and Single-Panel layouts
-- NEW: Improved support for existing (large) image collections (requires [ha-list-media integration](https://github.com/tienducle/ha-list-media))
+- NEW: Improved support for existing (large) image collections (requires [ha-media-files custom integration](https://github.com/tienducle/ha-media-files))
 - Other:
   - Configurable slideshow interval
   - Configurable delay when manually navigating
@@ -62,26 +62,35 @@ This works best for new image collections, where you (and your household members
 
 ## Other image collections
 
-The default [HA folder integration](https://www.home-assistant.io/integrations/folder/) does not support nested folders. Since the integration is marked as legacy, I have created a custom integration called [ha-list-media](https://github.com/tienducle/ha-list-media) as a substitute.
-1. Follow instructions at [ha-list-media integration](https://github.com/tienducle/ha-list-media) to install the custom integration
+The default [HA folder integration](https://www.home-assistant.io/integrations/folder/) does not support nested folders and is marked as legacy. To work with larger image collections that have subfolders, use the [ha-media-files](https://github.com/tienducle/ha-media-files) custom integration instead.
 
-In the following example, a samba share is configured as a new Home Assistant media source, named `my-nas-photo-collection`:
+1. Follow instructions at [ha-media-files](https://github.com/tienducle/ha-media-files) to install the custom integration
+
+2. Open the PhotoFrame card configuration and:
+   - Enable the `Use custom media_files integration` option
+   - Enter the path to your media folder, e.g. `/media/photo-frame-images`
+
+The integration will automatically scan all subfolders recursively.
+
+### Example: Using a network share
+
+To use images from a NAS or network share:
 
    - Open `Home Assistant -> Settings -> System -> Storage`
-   - Click on `Add network storage`
+   - Click `Add network storage`
    - Enter name: `my-nas-photo-collection`
-   - Select usage: `Media``
-   - Configure server, remote share, credentials according to your setup
-   - Click on `Save`
+   - Select usage: `Media`
+   - Configure server, remote share, and credentials
+   - Click `Save`
 
-Now the folder should be visible in the Home Assistant Media Browser panel.
+The folder will appear in the Media Browser panel. In PhotoFrame, set the media folder path to `/media/my-nas-photo-collection` or just `my-nas-photo-collection`.
 
-Open the PhotoFrame card configuration and enable the `Use custom list media integration` option. Finally, enter the name of the configured media source, e.g. `my-nas-photo-collection`.
+**Note:** Paths outside the `/media` directory are not allowed by Home Assistant.
 
 # Troubleshooting
 
 ## Optimize images
-When uploading from iOS Home Assistant Companion App, you can use the iOS built-in resize option in the Photo picker to let iOS resize images (e.g. to "Large" is suitable for most cases) before uploading them to Home Assistant:
+When uploading from the iOS Home Assistant Companion App, you can use the iOS built-in resize option in the Photo picker to resize images (e.g., selecting "Large" is suitable for most cases) before uploading them to Home Assistant:
 
 ![iOS resize image option](docs/images/ios-resize.gif)
 

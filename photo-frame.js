@@ -1,22 +1,22 @@
 const DEFAULT_CONFIG = {
-    hide_card_header             : false,
-    card_header                  : "PhotoFrame",
-    card_mode                    : "grid",
-    aspect_ratio                 : '3/2',
-    rounded_corners              : true,
-    images_sensor                : 'sensor.photo_frame_images',
-    slide_show_interval          : 2000,
-    slide_show_mode              : "random",
-    delay_on_manual_navigation   : 10000,
-    file_type_filter             : 'jpg,jpeg,png,gif,webp,heic',
-    file_type_filter_regexp      : undefined,
-    debug_logs_enabled           : false,
-    start_immediately            : false,
-    fade_duration                : 1000,
-    max_history_size             : 10,
-    use_list_media_integration   : false,
-    media_folder                 : "photo-frame-images",
-    grid_options                 : {
+    hide_card_header                  : false,
+    card_header                       : "PhotoFrame",
+    card_mode                         : "grid",
+    aspect_ratio                      : '3/2',
+    rounded_corners                   : true,
+    images_sensor                     : 'sensor.photo_frame_images',
+    slide_show_interval               : 2000,
+    slide_show_mode                   : "random",
+    delay_on_manual_navigation        : 10000,
+    file_type_filter                  : 'jpg,jpeg,png,gif,webp,heic',
+    file_type_filter_regexp           : undefined,
+    debug_logs_enabled                : false,
+    start_immediately                 : false,
+    fade_duration                     : 1000,
+    max_history_size                  : 10,
+    use_custom_media_files_integration: false,
+    media_folder                      : "/media/photo-frame-images",
+    grid_options                      : {
         columns: 12,
         rows   : "auto"
     }
@@ -664,9 +664,9 @@ class PhotoFrame extends HTMLElement
 
         /** @type {string[]} */
         this.log( "Retrieving current image list from sensor" );
-        const result = this._config.use_list_media_integration
-        ? await this.getImageFilesFromListMediaIntegration( hass, cardConfig, state )
-        : this.getImageFilesFromFolderSensor( hass, cardConfig, state );
+        const result = this._config.use_custom_media_files_integration
+                       ? await this.getImageFilesFromMediaFilesIntegration()
+                       : this.getImageFilesFromFolderSensor();
 
         if ( result.lastChangedMarker === state.imageListLastChangedMarker )
         {
@@ -687,10 +687,15 @@ class PhotoFrame extends HTMLElement
         return state;
     }
 
-    async getImageFilesFromListMediaIntegration()
+    /**
+     * Retrieves the list of image files from the media_files custom integration.
+     * 
+     * @returns {Promise<{fileList: string[], lastChangedMarker: string}>}
+     */
+    async getImageFilesFromMediaFilesIntegration()
     {
         return this._hass.callWS( {
-            type: "list_media/get_files",
+            type: "media_files/list_files",
             path: this._config.media_folder,
             recursive: true,
             file_extensions: this._config.file_type_filter,
@@ -701,6 +706,11 @@ class PhotoFrame extends HTMLElement
         }));
     }
 
+    /**
+     * Retrieves the list of image files from the Home Assistant folder sensor integration.
+     * 
+     * @returns {{fileList: string[], lastChangedMarker: string}}
+     */
     getImageFilesFromFolderSensor()
     {
         /** @type {{entity_id: string, last_changed: string,attributes: {file_list: string[]}}} */
@@ -925,7 +935,7 @@ class PhotoFrame extends HTMLElement
                     type: "grid",
                     schema:
                         [
-                            { name: "use_list_media_integration", selector: { boolean: { } } },
+                            { name: "use_custom_media_files_integration", selector: { boolean: { } } },
                             { name: "media_folder", selector: { text: { default: "photo-frame-images" } } }
                         ]
                 }
@@ -955,7 +965,7 @@ class PhotoFrame extends HTMLElement
                 if (schema.name === "debug_logs_enabled") return "Debug Logs Enabled";
                 if (schema.name === "start_immediately") return "Start Immediately";
                 if (schema.name === "max_history_size") return "Maximum History Size";
-                if (schema.name === "use_list_media_integration") return "Use custom list media integration";
+                if (schema.name === "use_custom_media_files_integration") return "Use custom media_files integration";
                 if (schema.name === "media_folder") return "Folder path inside media directory";
                 return undefined;
             },
@@ -999,10 +1009,10 @@ class PhotoFrame extends HTMLElement
                         return "Start the slideshow immediately after the card is loaded";
                     case "max_history_size":
                         return "Maximum number of images to keep in history for manual navigation. Set to 1 to disable manual navigation.";
-                    case "use_list_media_integration":
-                        return "EXPERIMENTAL: Use custom folder integration (list_media). May be useful for existing large image collections.";
+                    case "use_custom_media_files_integration":
+                        return "EXPERIMENTAL: Use custom media_files integration. Requires https://github.com/tienducle/ha-media-files. See README.md for details.";
                     case "media_folder":
-                        return "The path to the custom folder. Default is /media/photo-frame-images.";
+                        return "The path to the custom folder inside the media directory, e.g. /media/photo-frame-images.";
                 }
                 return undefined;
             },
