@@ -1,23 +1,26 @@
 const DEFAULT_CONFIG = {
-    hide_card_header          : false,
-    card_header               : "PhotoFrame",
-    card_mode                 : "grid",
-    aspect_ratio              : '3/2',
-    rounded_corners           : true,
-    images_sensor             : 'sensor.photo_frame_images',
-    slide_show_interval       : 2000,
-    slide_show_mode           : "random",
-    delay_on_manual_navigation: 10000,
-    file_type_filter          : 'jpg,jpeg,png,gif,webp,heic',
-    file_type_filter_regexp   : undefined,
-    debug_logs_enabled        : false,
-    start_immediately         : false,
-    fade_duration             : 1000,
-    max_history_size          : 10,
-    grid_options              : {
+    hide_card_header                  : false,
+    card_header                       : "PhotoFrame",
+    card_mode                         : "grid",
+    aspect_ratio                      : '3/2',
+    rounded_corners                   : true,
+    images_sensor                     : 'sensor.photo_frame_images',
+    slide_show_interval               : 2000,
+    slide_show_mode                   : "random",
+    delay_on_manual_navigation        : 10000,
+    file_type_filter                  : 'jpg,jpeg,png,gif,webp,heic',
+    file_type_filter_regexp           : undefined,
+    debug_logs_enabled                : false,
+    start_immediately                 : false,
+    fade_duration                     : 1000,
+    max_history_size                  : 10,
+    use_custom_media_files_integration: false,
+    media_folder                      : "/media/photo-frame-images",
+    grid_options                      : {
         columns: 12,
         rows   : "auto"
-    }
+    },
+    image_list_refresh_interval       : 60000 // 60 seconds
 };
 
 class PhotoFrame extends HTMLElement
@@ -35,7 +38,8 @@ class PhotoFrame extends HTMLElement
         this._isUpdateInProgress = false;
 
         // timestamp of the last image list sensor change
-        this._imageListSensorLastChanged = "";
+        this._imageListLastUpdatedTimestamp = 0;
+        this._imageListLastChangedMarker = "";
         // list of images extracted from the image list sensor
         this._imageList = [];
         // list of image indices that have been displayed
@@ -185,7 +189,8 @@ class PhotoFrame extends HTMLElement
         this._imageList = [];
         this._indexHistory = [];
         this._indexOffset = 0;
-        this._imageListSensorLastChanged = "";
+        this._imageListLastUpdatedTimestamp = 0;
+        this._imageListLastChangedMarker = "";
 
         // Reset update flags
         this._isUpdateInProgress = false;
@@ -648,30 +653,79 @@ class PhotoFrame extends HTMLElement
      * @param state {State}
      * @returns {State} List of image files
      */
-    refreshImageList( hass, cardConfig, state )
+    async refreshImageList( hass, cardConfig, state )
+    {
+        // only refresh if this._imageListLastUpdatedTimestamp is older than 60 seconds
+        const now = Date.now();
+        if ( now - this._imageListLastUpdatedTimestamp < cardConfig.image_list_refresh_interval )
+        {
+            this.log( `Image list was updated less than ${cardConfig.image_list_refresh_interval / 1000} seconds ago. Skipping refresh.` );
+            return state;
+        }
+
+        /** @type {string[]} */
+        this.log( "Retrieving current image list from sensor" );
+        const result = this._config.use_custom_media_files_integration
+                       ? await this.getImageFilesFromMediaFilesIntegration()
+                       : this.getImageFilesFromFolderSensor();
+
+        if ( result.lastChangedMarker === state.imageListLastChangedMarker )
+        {
+            this.log( "Image list did not change. Skip processing retrieved image list." );
+            return state;
+        }
+        else
+        {
+            this.log( `Image list changed. Old marker: ${state.imageListLastChangedMarker}, new marker: ${result.lastChangedMarker}` );
+        }
+
+        state.imageList = result.fileList.filter( file => cardConfig.file_type_filter_regexp.test( file ) )
+                                         .sort( ( a, b ) => this.imageCompareFunction( a, b ) );
+        state.indexHistory = [];
+        state.imageListLastUpdatedTimestamp = now;
+        state.imageListLastChangedMarker = result.lastChangedMarker;
+        state.hasNewImages = true;
+        return state;
+    }
+
+    /**
+     * Retrieves the list of image files from the media_files custom integration.
+     * 
+     * @returns {Promise<{fileList: string[], lastChangedMarker: string}>}
+     */
+    async getImageFilesFromMediaFilesIntegration()
+    {
+        return this._hass.callWS( {
+            type: "media_files/list_files",
+            path: this._config.media_folder,
+            recursive: true,
+            file_extensions: this._config.file_type_filter,
+        })
+        .then( response => ({
+            fileList: response.files,
+            lastChangedMarker: response.content_hash,
+        }));
+    }
+
+    /**
+     * Retrieves the list of image files from the Home Assistant folder sensor integration.
+     * 
+     * @returns {{fileList: string[], lastChangedMarker: string}}
+     */
+    getImageFilesFromFolderSensor()
     {
         /** @type {{entity_id: string, last_changed: string,attributes: {file_list: string[]}}} */
-        const sensor = hass.states[ this._config.images_sensor ];
+        const sensor = this._hass.states[ this._config.images_sensor ];
         if ( !sensor )
         {
             throw new Error( "Sensor not found: " + this._config.images_sensor );
         }
-        this.log( "Sensor state:", sensor );
-        if ( sensor.last_changed === this._imageListSensorLastChanged )
-        {
-            this.log( "Image list sensor did not change." );
-            return state;
-        }
+        this.log( "Sensor state: ", sensor );
 
-        this.log( "Retrieving image paths from image list sensor" );
-        /** @type {string[]} */
-        const fileList = sensor.attributes.file_list || [];
-        state.imageList = fileList.filter( file => cardConfig.file_type_filter_regexp.test( file ) )
-                                  .sort( ( a, b ) => this.imageCompareFunction( a, b ) );
-        state.indexHistory = [];
-        state.imageListSensorLastChanged = sensor.last_changed;
-        state.hasNewImages = true;
-        return state;
+        return {
+            fileList: sensor.attributes.file_list || [],
+            lastChangedMarker: sensor.last_changed,
+        };
     }
 
     imageCompareFunction( a, b )
@@ -776,7 +830,8 @@ class PhotoFrame extends HTMLElement
             imageList: [...this._imageList],
             indexHistory: [...this._indexHistory],
             indexOffset: this._indexOffset,
-            imageListSensorLastChanged: this._imageListSensorLastChanged
+            imageListLastUpdatedTimestamp: this._imageListLastUpdatedTimestamp,
+            imageListLastChangedMarker: this._imageListLastChangedMarker,
         });
     }
 
@@ -795,7 +850,8 @@ class PhotoFrame extends HTMLElement
         }
         this._indexHistory = state.indexHistory;
         this._indexOffset = state.indexOffset;
-        this._imageListSensorLastChanged = state.imageListSensorLastChanged;
+        this._imageListLastUpdatedTimestamp = state.imageListLastUpdatedTimestamp;
+        this._imageListLastChangedMarker = state.imageListLastChangedMarker;
         return state;
     }
 
@@ -852,7 +908,7 @@ class PhotoFrame extends HTMLElement
                             { name: "rounded_corners", selector: { boolean: { } } }
                         ]
                 },
-                { name: "images_sensor", required: true, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
+                { name: "images_sensor", required: false, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
                 {
                     name: "",
                     type: "grid",
@@ -873,6 +929,15 @@ class PhotoFrame extends HTMLElement
                             { name: "debug_logs_enabled", selector: { boolean: { } } },
                             { name: "start_immediately", selector: { boolean: { } } },
                             { name: "max_history_size", selector: { number: { min: 1, max: 10, step: 1, mode: "box" } } }
+                        ]
+                },
+                {
+                    name: "",
+                    type: "grid",
+                    schema:
+                        [
+                            { name: "use_custom_media_files_integration", selector: { boolean: { } } },
+                            { name: "media_folder", selector: { text: { default: "/media/photo-frame-images" } } }
                         ]
                 }
             ],
@@ -901,6 +966,8 @@ class PhotoFrame extends HTMLElement
                 if (schema.name === "debug_logs_enabled") return "Debug Logs Enabled";
                 if (schema.name === "start_immediately") return "Start Immediately";
                 if (schema.name === "max_history_size") return "Maximum History Size";
+                if (schema.name === "use_custom_media_files_integration") return "Use custom media_files integration";
+                if (schema.name === "media_folder") return "Folder path inside media directory";
                 return undefined;
             },
 
@@ -943,6 +1010,10 @@ class PhotoFrame extends HTMLElement
                         return "Start the slideshow immediately after the card is loaded";
                     case "max_history_size":
                         return "Maximum number of images to keep in history for manual navigation. Set to 1 to disable manual navigation.";
+                    case "use_custom_media_files_integration":
+                        return "EXPERIMENTAL: Use custom media_files integration. Requires https://github.com/tienducle/ha-media-files. See README.md for details.";
+                    case "media_folder":
+                        return "Relative or full path to a photos folder inside the media directory, e.g. /media/photo-frame-images or photo-frame-images";
                 }
                 return undefined;
             },
@@ -996,14 +1067,15 @@ class State
 {
     /**
      *
-     * @param state {{imageList: string[]|undefined, indexHistory: number[]|undefined, indexOffset: number, imageListSensorLastChanged: string|undefined}}
+     * @param state {{imageList: string[]|undefined, indexHistory: number[]|undefined, indexOffset: number, imageListLastUpdatedTimestamp: number|undefined, imageListLastChangedMarker: string|undefined, hasNewImages: boolean}}
      */
     constructor( state )
     {
         this.imageList = state.imageList || [];
         this.indexHistory = state.indexHistory || [];
         this.indexOffset = state.indexOffset;
-        this.imageListSensorLastChanged = state.imageListSensorLastChanged || "";
+        this.imageListLastUpdatedTimestamp = state.imageListLastUpdatedTimestamp || 0;
+        this.imageListLastChangedMarker = state.imageListLastChangedMarker || "";
         this.hasNewImages = false;
     }
 }
