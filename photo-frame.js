@@ -285,7 +285,11 @@ class PhotoFrame extends HTMLElement
         this._photoContainerRef.style.alignItems = "center";
         this._photoContainerRef.style.justifyContent = "center";
         this._photoContainerRef.style.position = "relative"; // for overlay buttons
-        this._photoContainerRef.style.borderRadius = this._config.rounded_corners ? "12px" : "0";
+        this._photoContainerRef.style.borderRadius = this._config.rounded_corners
+                                                     ? this._config.hide_card_header
+                                                       ? "12px"
+                                                       : "0 0 12px 12px"
+                                                     : "0";
 
         // Create navigation buttons
         this._prevButtonRef = ImageNavButton.create( 'Previous image', 'left', '‹' );
