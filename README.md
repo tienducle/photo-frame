@@ -62,11 +62,13 @@ This works best for new image collections, where you (and your household members
 
 ## Other image collections
 
-The default [HA folder integration](https://www.home-assistant.io/integrations/folder/) does not support nested folders and is marked as legacy. To work with larger image collections that have subfolders, use the [ha-media-files](https://github.com/tienducle/ha-media-files) custom integration instead.
+The default [HA folder integration](https://www.home-assistant.io/integrations/folder/) does not support nested folders and is marked as legacy. To use PhotoFrame card with existing image collections that contain subfolders (e.g. on your NAS), use the [ha-media-files](https://github.com/tienducle/ha-media-files) custom integration instead.
 
-1. Follow instructions at [ha-media-files](https://github.com/tienducle/ha-media-files) to install the custom integration
+1. Your image collection must be accessible under Home Assistant's `/media` directory (e.g. configured via `media_dirs` in your configuration.yaml or added as network storage in Settings → System → Storage)
 
-2. Open the PhotoFrame card configuration and:
+2. Follow instructions at [ha-media-files](https://github.com/tienducle/ha-media-files) to install the custom integration
+
+3. Open the PhotoFrame card configuration and:
    - Enable the `Use custom media_files integration` option
    - Enter the path to your media folder, e.g. `/media/photo-frame-images`
 
