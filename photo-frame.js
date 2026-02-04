@@ -4,6 +4,7 @@ const DEFAULT_CONFIG = {
     card_mode                         : "grid",
     aspect_ratio                      : '3/2',
     rounded_corners                   : true,
+    borderless                        : false,
     images_sensor                     : 'sensor.photo_frame_images',
     slide_show_interval               : 2000,
     slide_show_mode                   : "random",
@@ -267,6 +268,11 @@ class PhotoFrame extends HTMLElement
         }
 
         this.log( "Initializing photo container" );
+
+        if ( this._config.borderless === true )
+        {
+            this._cardContainerRef.style.padding = "0";
+        }
 
         // Create photo container
         this._photoContainerRef = document.createElement( "div" );
@@ -894,7 +900,8 @@ class PhotoFrame extends HTMLElement
                     type: "grid",
                     schema:
                         [
-                            { name: "hide_card_header", selector: { boolean: { } } },
+                            { name: "card_header", selector: { text: {} } },
+                            { name: "hide_card_header", selector: { boolean: { } } }
                         ]
                 },
                 {
@@ -902,10 +909,10 @@ class PhotoFrame extends HTMLElement
                     type: "grid",
                     schema:
                         [
-                            { name: "card_header", selector: { text: {} } },
                             { name: "card_mode", required: true, selector: { select: { options: [ "grid", "single-card-panel" ], mode: "dropdown" } } },
                             { name: "aspect_ratio", required: true, selector: { select: { options: [ "16/10", "16/9", "4/3", "3/2", "1/1", "2/3", "3/4", "9/16", "10/16" ], mode: "dropdown" } } },
-                            { name: "rounded_corners", selector: { boolean: { } } }
+                            { name: "rounded_corners", selector: { boolean: { } } },
+                            { name: "borderless", selector: { boolean: { } } }
                         ]
                 },
                 { name: "images_sensor", required: false, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
@@ -957,6 +964,7 @@ class PhotoFrame extends HTMLElement
                 if (schema.name === "card_mode") return "Card Mode";
                 if (schema.name === "aspect_ratio") return "Aspect Ratio";
                 if (schema.name === "rounded_corners") return "Rounded Corners";
+                if (schema.name === "borderless") return "Borderless";
                 if (schema.name === "images_sensor") return "Images Sensor Entity";
                 if (schema.name === "slide_show_interval") return "Slide Show Interval";
                 if (schema.name === "slide_show_mode") return "Slide Show Mode";
@@ -989,9 +997,11 @@ class PhotoFrame extends HTMLElement
                     case "card_mode":
                         return "'grid' can crop images while 'single-card-panel' will letterbox them";
                     case "aspect_ratio":
-                        return "Aspect ratio of the display area (images are fit within this ratio).";
+                        return "Aspect ratio of the display area (images are fit within this ratio)";
                     case "rounded_corners":
-                        return "";
+                        return "Enable rounded corners for the image.";
+                    case "borderless":
+                        return "Override Home Assistant's default card padding and display images edge to edge";
                     case "images_sensor":
                         return "Entity ID of the folder sensor that provides the list of images";
                     case "slide_show_interval":
@@ -999,7 +1009,7 @@ class PhotoFrame extends HTMLElement
                     case "slide_show_mode":
                         return "Order in which images should be picked";
                     case "fade_duration":
-                        return "Duration of fade transition between images in milliseconds. Set to 0 to disable fade effect.";
+                        return "Duration of fade transition between images in milliseconds. Set to 0 to disable fade effect";
                     case "delay_on_manual_navigation":
                         return "Delay in milliseconds after manual navigation before the slideshow resumes";
                     case "file_type_filter":
@@ -1009,9 +1019,9 @@ class PhotoFrame extends HTMLElement
                     case "start_immediately":
                         return "Start the slideshow immediately after the card is loaded";
                     case "max_history_size":
-                        return "Maximum number of images to keep in history for manual navigation. Set to 1 to disable manual navigation.";
+                        return "Maximum number of images to keep in history for manual navigation. Set to 1 to disable manual navigation";
                     case "use_custom_media_files_integration":
-                        return "EXPERIMENTAL: Use custom media_files integration. Requires https://github.com/tienducle/ha-media-files. See README.md for details.";
+                        return "EXPERIMENTAL: Use custom media_files integration. Requires https://github.com/tienducle/ha-media-files. See README.md for details";
                     case "media_folder":
                         return "Relative or full path to a photos folder inside the media directory, e.g. /media/photo-frame-images or photo-frame-images";
                 }
