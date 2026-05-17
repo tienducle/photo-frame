@@ -1,6 +1,7 @@
 const DEFAULT_CONFIG = {
-    hide_card_header                  : false,
     card_header                       : "PhotoFrame",
+    hide_card_header                  : false,
+    start_immediately                 : false,
     card_mode                         : "grid",
     aspect_ratio                      : '3/2',
     rounded_corners                   : true,
@@ -8,12 +9,11 @@ const DEFAULT_CONFIG = {
     images_sensor                     : 'sensor.photo_frame_images',
     slide_show_interval               : 2000,
     slide_show_mode                   : "random",
+    fade_duration                     : 1000,
     delay_on_manual_navigation        : 10000,
     file_type_filter                  : 'jpg,jpeg,png,gif,webp,heic',
     file_type_filter_regexp           : undefined,
     debug_logs_enabled                : false,
-    start_immediately                 : false,
-    fade_duration                     : 1000,
     max_history_size                  : 10,
     use_custom_media_files_integration: false,
     media_folder                      : "/media/photo-frame-images",
@@ -899,13 +899,14 @@ class PhotoFrame extends HTMLElement
              * defining various properties of the field, like the name and selector
              */
             schema: [
+                { name: "card_header", selector: { text: {} } },
                 {
                     name: "",
                     type: "grid",
                     schema:
                         [
-                            { name: "card_header", selector: { text: {} } },
-                            { name: "hide_card_header", selector: { boolean: { } } }
+                            { name: "hide_card_header", selector: { boolean: { } } },
+                            { name: "start_immediately", selector: { boolean: { } } }
                         ]
                 },
                 {
@@ -919,36 +920,57 @@ class PhotoFrame extends HTMLElement
                             { name: "borderless", selector: { boolean: { } } }
                         ]
                 },
-                { name: "images_sensor", required: false, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
+
+                /* Slideshow section */
                 {
                     name: "",
-                    type: "grid",
+                    type: "expandable",
+                    title: "Slideshow",
+                    icon: "mdi:play-box-outline",
                     schema:
                         [
-                            { name: "slide_show_interval", required: true, selector: { number: { min: 1000, step: 500, unit_of_measurement: "ms", mode: "box" } } },
-                            { name: "slide_show_mode", required: true, selector: { select: { options: [ "random", "name-ascending", "name-descending" ], mode: "dropdown" } } },
-                            { name: "fade_duration", required: true, selector: { number: { min: 0, step: 100, unit_of_measurement: "ms", mode: "box" } } },
-                            { name: "delay_on_manual_navigation", required: true, selector: { number: { min: 1000, step: 500, unit_of_measurement: "ms", mode: "box" } } }
+                            { name: "images_sensor", required: false, selector: { entity: { filter: { domain: "sensor", integration: "folder" } } } },
+                            {
+                                name: "",
+                                type: "grid",
+                                schema:
+                                    [
+                                        { name: "slide_show_interval", required: true, selector: { number: { min: 1000, step: 500, unit_of_measurement: "ms", mode: "box" } } },
+                                        { name: "slide_show_mode", required: true, selector: { select: { options: [ "random", "name-ascending", "name-descending" ], mode: "dropdown" } } },
+                                        { name: "fade_duration", required: true, selector: { number: { min: 0, step: 100, unit_of_measurement: "ms", mode: "box" } } },
+                                        { name: "delay_on_manual_navigation", required: true, selector: { number: { min: 1000, step: 500, unit_of_measurement: "ms", mode: "box" } } }
+                                    ]
+                            }
                         ]
                 },
-                { name: "file_type_filter", required: true, selector: { text: {} } },
+
+                /* Advanced section */
                 {
                     name: "",
-                    type: "grid",
+                    type: "expandable",
+                    title: "Advanced",
+                    icon: "mdi:cog",
                     schema:
                         [
-                            { name: "debug_logs_enabled", selector: { boolean: { } } },
-                            { name: "start_immediately", selector: { boolean: { } } },
-                            { name: "max_history_size", selector: { number: { min: 1, max: 10, step: 1, mode: "box" } } }
-                        ]
-                },
-                {
-                    name: "",
-                    type: "grid",
-                    schema:
-                        [
-                            { name: "use_custom_media_files_integration", selector: { boolean: { } } },
-                            { name: "media_folder", selector: { text: { default: "/media/photo-frame-images" } } }
+                            { name: "file_type_filter", required: true, selector: { text: {} } },
+                            {
+                                name: "",
+                                type: "grid",
+                                schema:
+                                    [
+                                        { name: "debug_logs_enabled", selector: { boolean: { } } },
+                                        { name: "max_history_size", selector: { number: { min: 1, max: 10, step: 1, mode: "box" } } }
+                                    ]
+                            },
+                            {
+                                name: "",
+                                type: "grid",
+                                schema:
+                                    [
+                                        { name: "use_custom_media_files_integration", selector: { boolean: { } } },
+                                        { name: "media_folder", selector: { text: { default: "/media/photo-frame-images" } } }
+                                    ]
+                            }
                         ]
                 }
             ],
@@ -963,20 +985,22 @@ class PhotoFrame extends HTMLElement
              * @returns {undefined|string}
              */
             computeLabel: (schema) => {
-                if (schema.name === "hide_card_header") return "Hide Card Header";
                 if (schema.name === "card_header") return "Card Header";
+                if (schema.name === "hide_card_header") return "Hide Card Header";
+                if (schema.name === "start_immediately") return "Start Immediately";
                 if (schema.name === "card_mode") return "Card Mode";
                 if (schema.name === "aspect_ratio") return "Aspect Ratio";
                 if (schema.name === "rounded_corners") return "Rounded Corners";
                 if (schema.name === "borderless") return "Borderless";
+                /* Slideshow section */
                 if (schema.name === "images_sensor") return "Images Sensor Entity";
                 if (schema.name === "slide_show_interval") return "Slide Show Interval";
                 if (schema.name === "slide_show_mode") return "Slide Show Mode";
                 if (schema.name === "fade_duration") return "Fade Duration";
                 if (schema.name === "delay_on_manual_navigation") return "Delay on Manual Navigation";
+                /* Advanced section */
                 if (schema.name === "file_type_filter") return "File Type Filter";
                 if (schema.name === "debug_logs_enabled") return "Debug Logs Enabled";
-                if (schema.name === "start_immediately") return "Start Immediately";
                 if (schema.name === "max_history_size") return "Maximum History Size";
                 if (schema.name === "use_custom_media_files_integration") return "Use custom media_files integration";
                 if (schema.name === "media_folder") return "Folder path inside media directory";
@@ -994,10 +1018,12 @@ class PhotoFrame extends HTMLElement
             {
                 switch ( schema.name )
                 {
-                    case "hide_card_header":
-                        return "";
                     case "card_header":
                         return "Text to display in the card header";
+                    case "hide_card_header":
+                        return "";
+                    case "start_immediately":
+                        return "Start the slideshow immediately after the card is loaded";
                     case "card_mode":
                         return "'grid' can crop images while 'single-card-panel' will letterbox them";
                     case "aspect_ratio":
@@ -1006,6 +1032,7 @@ class PhotoFrame extends HTMLElement
                         return "Enable rounded corners for the image.";
                     case "borderless":
                         return "Override Home Assistant's default card padding and display images edge to edge";
+                    /* Slideshow section */
                     case "images_sensor":
                         return "Entity ID of the folder sensor that provides the list of images";
                     case "slide_show_interval":
@@ -1016,12 +1043,11 @@ class PhotoFrame extends HTMLElement
                         return "Duration of fade transition between images in milliseconds. Set to 0 to disable fade effect";
                     case "delay_on_manual_navigation":
                         return "Delay in milliseconds after manual navigation before the slideshow resumes";
+                    /* Advanced section */
                     case "file_type_filter":
                         return "Comma-separated file extensions. HEIC is most likely only supported on Apple devices";
                     case "debug_logs_enabled":
                         return "Enable debug logs. Open the browser console to see the logs";
-                    case "start_immediately":
-                        return "Start the slideshow immediately after the card is loaded";
                     case "max_history_size":
                         return "Maximum number of images to keep in history for manual navigation. Set to 1 to disable manual navigation";
                     case "use_custom_media_files_integration":
