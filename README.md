@@ -10,7 +10,8 @@
   - *"Files served from `media` are protected by Home Assistant authentication unlike those served from `www`."*
 - Navigate back and forth within recent images
 - Works with Home Assistant Section, Masonry and Single-Panel layouts
-- NEW: Improved support for existing (large) image collections (requires [ha-media-files custom integration](https://github.com/tienducle/ha-media-files))
+- NEW: Supports Home Assistant Card Actions (tap, hold and double-tap)
+- Improved support for existing (large) image collections (requires [ha-media-files custom integration](https://github.com/tienducle/ha-media-files))
 - Other:
   - Configurable slideshow interval
   - Configurable delay when manually navigating

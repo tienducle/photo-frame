@@ -1,27 +1,33 @@
 const DEFAULT_CONFIG = {
-    card_header                       : "PhotoFrame",
-    hide_card_header                  : false,
-    start_immediately                 : false,
-    card_mode                         : "grid",
-    aspect_ratio                      : '3/2',
-    rounded_corners                   : true,
-    borderless                        : false,
-    images_sensor                     : 'sensor.photo_frame_images',
-    slide_show_interval               : 2000,
-    slide_show_mode                   : "random",
-    fade_duration                     : 1000,
-    delay_on_manual_navigation        : 10000,
-    file_type_filter                  : 'jpg,jpeg,png,gif,webp,heic',
-    file_type_filter_regexp           : undefined,
-    debug_logs_enabled                : false,
-    max_history_size                  : 10,
-    use_custom_media_files_integration: false,
-    media_folder                      : "/media/photo-frame-images",
-    grid_options                      : {
+    card_header                        : "PhotoFrame",
+    hide_card_header                   : false,
+    start_immediately                  : false,
+    card_mode                          : "grid",
+    aspect_ratio                       : '3/2',
+    rounded_corners                    : true,
+    borderless                         : false,
+    images_sensor                      : 'sensor.photo_frame_images',
+    slide_show_interval                : 2000,
+    slide_show_mode                    : "random",
+    fade_duration                      : 1000,
+    delay_on_manual_navigation         : 10000,
+    entity                             : "",
+    tap_action                         : { action: "none" },
+    hold_action                        : { action: "none" },
+    double_tap_action                  : { action: "none" },
+    double_tap_delay                   : 250,
+    file_type_filter                   : 'jpg,jpeg,png,gif,webp,heic',
+    file_type_filter_regexp            : undefined,
+    debug_logs_enabled                 : false,
+    max_history_size                   : 10,
+    use_custom_media_files_integration : false,
+    media_folder                       : "/media/photo-frame-images",
+    grid_options                       : {
         columns: 12,
         rows   : "auto"
     },
-    image_list_refresh_interval       : 60000 // 60 seconds
+    image_list_refresh_interval        : 60000, // 60 seconds
+    disable_native_browser_interactions: true
 };
 
 class PhotoFrame extends HTMLElement
@@ -69,6 +75,9 @@ class PhotoFrame extends HTMLElement
         this._nextButtonClickedEventHandler = null;
         this._prevButtonRef = null;
         this._nextButtonRef = null;
+
+        // Action handler for tap/hold/double-tap card actions
+        this._cardActionHandler = null;
     }
 
     /**
@@ -167,6 +176,12 @@ class PhotoFrame extends HTMLElement
             this._nextButtonRef.removeEventListener( 'click', this._nextButtonClickedEventHandler );
             this._nextButtonClickedEventHandler = null;
             this._nextButtonRef = null;
+        }
+
+        if ( this._cardActionHandler )
+        {
+            this._cardActionHandler.destroy();
+            this._cardActionHandler = null;
         }
 
         if ( this._photoContainerRef )
@@ -291,6 +306,13 @@ class PhotoFrame extends HTMLElement
                                                        : "0 0 12px 12px"
                                                      : "0";
 
+        if ( this._config.disable_native_browser_interactions )
+        {
+            this._photoContainerRef.style.webkitTouchCallout = 'none';
+            this._photoContainerRef.style.userSelect = 'none';
+            this._photoContainerRef.addEventListener( 'contextmenu', ( pointerEvent ) => pointerEvent.preventDefault() );
+        }
+
         // Create navigation buttons
         this._prevButtonRef = ImageNavButton.create( 'Previous image', 'left', '‹' );
         this._nextButtonRef = ImageNavButton.create( 'Next image', 'right', '›' );
@@ -314,6 +336,13 @@ class PhotoFrame extends HTMLElement
         this._currentImageElementRef.style.zIndex = '1';
         this._currentImageElementRef.style.willChange = 'opacity';
 
+        if ( this._config.disable_native_browser_interactions )
+        {
+            this._currentImageElementRef.style.webkitTouchCallout = 'none';
+            this._currentImageElementRef.style.userSelect = 'none';
+            this._currentImageElementRef.draggable = false;
+        }
+
         // Create image element for crossfade
         this._nextImageElementRef = new Image();
         this._nextImageElementRef.style.width = '100%';
@@ -325,6 +354,13 @@ class PhotoFrame extends HTMLElement
         this._nextImageElementRef.style.opacity = '0';
         this._nextImageElementRef.style.zIndex = '2';
         this._nextImageElementRef.style.willChange = 'opacity';
+
+        if ( this._config.disable_native_browser_interactions )
+        {
+            this._nextImageElementRef.style.webkitTouchCallout = 'none';
+            this._nextImageElementRef.style.userSelect = 'none';
+            this._nextImageElementRef.draggable = false;
+        }
 
         // Apply object-fit based on card mode
         const objectFitValue = this._config.card_mode === "grid"
@@ -458,6 +494,14 @@ class PhotoFrame extends HTMLElement
         this._photoContainerRef.addEventListener( 'mouseenter', this._mouseEnterEventHandler );
         this._photoContainerRef.addEventListener( 'mouseleave', this._mouseLeaveEventHandler );
         this._photoContainerRef.addEventListener( 'touchstart', this._touchStartEventHandler, { passive: true } );
+
+        // Setup action handler for tap/hold/double-tap interactions
+        const hasDoubleTap = this._config.double_tap_action?.action && this._config.double_tap_action.action !== "none";
+        this._cardActionHandler = new CardActionHandler(
+            this._photoContainerRef,
+            { doubleTapEnabled: hasDoubleTap, doubleTapWindow: this._config.double_tap_delay },
+            ( actionType ) => this.handleCardAction( actionType )
+        );
 
         this._helpTextContainerRef.remove();
         this._helpTextContainerRef = null;
@@ -651,6 +695,34 @@ class PhotoFrame extends HTMLElement
 
             this.log( `Cancelled ongoing transition` );
         }
+    }
+
+    /* Action handling (tap/hold/double-tap) */
+
+    /**
+     * Fires the hass-action event for a given card action type.
+     * Home Assistant's frontend handles the event and executes the configured action.
+     *
+     * @param actionType {"tap"|"hold"|"double_tap"}
+     */
+    handleCardAction( actionType )
+    {
+        const actionConfig = this._config[ actionType + "_action" ];
+        if ( !actionConfig || actionConfig.action === "none" )
+        {
+            return;
+        }
+
+        this.log( `Firing hass-action event for action type: ${actionType}` );
+        const event = new CustomEvent( "hass-action", {
+            bubbles: true,
+            composed: true,
+            detail: {
+                config: this._config,
+                action: actionType
+            }
+        } );
+        this.dispatchEvent( event );
     }
 
     /* Image list sensor */
@@ -944,6 +1016,22 @@ class PhotoFrame extends HTMLElement
                         ]
                 },
 
+                /* Interactions section */
+                {
+                    name: "",
+                    type: "expandable",
+                    title: "Interactions",
+                    icon: "mdi:gesture-tap",
+                    schema:
+                        [
+                            { name: "entity", selector: { entity: {} } },
+                            { name: "tap_action", selector: { "ui-action": {} } },
+                            { name: "hold_action", selector: { "ui-action": {} } },
+                            { name: "double_tap_action", selector: { "ui-action": {} } },
+                            { name: "double_tap_delay", selector: { number: { min: 100, max: 500, step: 50, unit_of_measurement: "ms", mode: "box" } } }
+                        ]
+                },
+
                 /* Advanced section */
                 {
                     name: "",
@@ -970,7 +1058,8 @@ class PhotoFrame extends HTMLElement
                                         { name: "use_custom_media_files_integration", selector: { boolean: { } } },
                                         { name: "media_folder", selector: { text: { default: "/media/photo-frame-images" } } }
                                     ]
-                            }
+                            },
+                            { name: "disable_native_browser_interactions", selector: { boolean: { } } }
                         ]
                 }
             ],
@@ -998,12 +1087,19 @@ class PhotoFrame extends HTMLElement
                 if (schema.name === "slide_show_mode") return "Slide Show Mode";
                 if (schema.name === "fade_duration") return "Fade Duration";
                 if (schema.name === "delay_on_manual_navigation") return "Delay on Manual Navigation";
+                /* Interactions section */
+                if (schema.name === "entity") return "Entity";
+                if (schema.name === "tap_action") return "Tap behavior";
+                if (schema.name === "hold_action") return "Hold behavior";
+                if (schema.name === "double_tap_action") return "Double tap behavior";
+                if (schema.name === "double_tap_delay") return "Double tap delay";
                 /* Advanced section */
                 if (schema.name === "file_type_filter") return "File Type Filter";
                 if (schema.name === "debug_logs_enabled") return "Debug Logs Enabled";
                 if (schema.name === "max_history_size") return "Maximum History Size";
                 if (schema.name === "use_custom_media_files_integration") return "Use custom media_files integration";
                 if (schema.name === "media_folder") return "Folder path inside media directory";
+                if (schema.name === "disable_native_browser_interactions") return "Disable native browser interactions";
                 return undefined;
             },
 
@@ -1043,6 +1139,17 @@ class PhotoFrame extends HTMLElement
                         return "Duration of fade transition between images in milliseconds. Set to 0 to disable fade effect";
                     case "delay_on_manual_navigation":
                         return "Delay in milliseconds after manual navigation before the slideshow resumes";
+                    /* Interactions section */
+                    case "entity":
+                        return "Entity used for toggle and more-info actions";
+                    case "tap_action":
+                        return "Action to perform when the card is tapped";
+                    case "hold_action":
+                        return "Action to perform when the card is held";
+                    case "double_tap_action":
+                        return "Action to perform when the card is double-tapped";
+                    case "double_tap_delay":
+                        return "Maximum time between two taps to register as a double tap. This also delays single tap actions by the specified amount. Has no effect on single tap if 'Double tap behavior' is set to 'Nothing'";
                     /* Advanced section */
                     case "file_type_filter":
                         return "Comma-separated file extensions. HEIC is most likely only supported on Apple devices";
@@ -1054,6 +1161,8 @@ class PhotoFrame extends HTMLElement
                         return "EXPERIMENTAL: Use custom media_files integration. Requires https://github.com/tienducle/ha-media-files. See README.md for details";
                     case "media_folder":
                         return "Relative or full path to a photos folder inside the media directory, e.g. /media/photo-frame-images or photo-frame-images";
+                    case "disable_native_browser_interactions":
+                        return "Prevents native browser interactions on images such as context menus, long-press popups (e.g. Save Image on iOS), and image dragging. Required for hold actions to work";
                 }
                 return undefined;
             },
@@ -1173,6 +1282,244 @@ class ImageNavButton
         btn.style.pointerEvents = visible
                                   ? 'auto'
                                   : 'none';
+    }
+}
+
+class CardActionHandler
+{
+    /**
+     * Handles tap, hold, and double-tap gesture detection on a target element.
+     * Ignores interactions that originate from button elements (nav buttons).
+     *
+     * Uses a two-track approach (mirroring Home Assistant's action-handler):
+     *   - Touch: touchstart (passive) + touchend (non-passive, preventDefault kills ghost clicks on iOS)
+     *   - Mouse: mousedown (passive) + click (non-passive)
+     * 
+     * @param targetElement {HTMLElement} The element to listen for gestures on
+     * @param options {{doubleTapEnabled: boolean, doubleTapWindow: number}} Options for gesture detection
+     * @param cardActionHandlerCallback {function(string)} Callback invoked with action type: "tap", "hold", or "double_tap"
+     */
+    constructor( targetElement, options = {}, cardActionHandlerCallback )
+    {
+        this._targetElement = targetElement;
+        this._doubleTapEnabled = options.doubleTapEnabled || false;
+        this._doubleTapWindow = options.doubleTapWindow || 250;
+        this._cardActionHandlerCallback = cardActionHandlerCallback;
+
+        this._holdTimeout = null;
+        this._doubleTapTimeout = null;
+        this._tapCount = 0;
+        this._holdTriggered = false;
+        this._startX = 0;
+        this._startY = 0;
+        this._holdIndicator = null;
+        this._isTouch = false;
+
+        this._startHandler = ( event ) => this._onStart( event );
+        this._endHandler = ( event ) => this._onEnd( event );
+        this._cancelHandler = () => this._onCancel();
+        this._moveHandler = ( event ) => this._onMove( event );
+
+        this._targetElement.addEventListener( 'mousedown', this._startHandler, { passive: true } );
+        this._targetElement.addEventListener( 'touchstart', this._startHandler, { passive: true } );
+        this._targetElement.addEventListener( 'touchend', this._endHandler );
+        this._targetElement.addEventListener( 'click', this._endHandler );
+        this._targetElement.addEventListener( 'touchcancel', this._cancelHandler, { passive: true } );
+        this._targetElement.addEventListener( 'touchmove', this._moveHandler, { passive: true } );
+    }
+
+    _isNavButton( element )
+    {
+        // Ignore interactions on navigation buttons
+        return element && ( element.tagName === 'BUTTON' || element.closest( 'button' ) );
+    }
+
+    _onStart( event )
+    {
+        if ( this._isNavButton( event.target ) )
+        {
+            return;
+        }
+
+        this._isTouch = event.type === 'touchstart';
+        this._holdTriggered = false;
+        this._startX = this._isTouch ? event.touches[ 0 ].clientX : event.clientX;
+        this._startY = this._isTouch ? event.touches[ 0 ].clientY : event.clientY;
+
+        this._holdTimeout = setTimeout( () =>
+        {
+            this._holdTriggered = true;
+            this._holdIndicator = this._createHoldIndicator( this._startX, this._startY, this._isTouch );
+        }, 500 );
+    }
+
+    _onEnd( event )
+    {
+        if ( this._isNavButton( event.target ) )
+        {
+            this._onCancel();
+            return;
+        }
+
+        // Ignore mouse click events when the interaction started with touch —
+        // the browser fires both touchend and a synthetic click; we handle touch only via touchend.
+        if ( event.type === 'click' && this._isTouch )
+        {
+            return;
+        }
+
+        if ( this._holdTimeout )
+        {
+            clearTimeout( this._holdTimeout );
+            this._holdTimeout = null;
+        }
+
+        // Check if pointer moved too far (swipe/scroll gesture)
+        const endX = event.type === 'touchend' ? event.changedTouches[ 0 ].clientX : event.clientX;
+        const endY = event.type === 'touchend' ? event.changedTouches[ 0 ].clientY : event.clientY;
+        if ( this._movedBeyondThreshold( endX, endY ) )
+        {
+            this._holdTriggered = false;
+            this._removeHoldIndicator();
+            return;
+        }
+
+        // Prevent synthetic mouse/click (ghost clicks) events that follow touchend
+        if ( event.cancelable )
+        {
+            event.preventDefault();
+        }
+
+        // If hold was triggered, fire hold action and stop
+        if ( this._holdTriggered )
+        {
+            this._holdTriggered = false;
+            this._removeHoldIndicator();
+            this._cardActionHandlerCallback( "hold" );
+            return;
+        }
+
+        // Double-tap detection
+        if ( !this._doubleTapEnabled )
+        {
+            this._cardActionHandlerCallback( "tap" );
+            return;
+        }
+
+        this._tapCount++;
+        if ( this._tapCount === 1 )
+        {
+            this._doubleTapTimeout = setTimeout( () =>
+            {
+                if ( this._tapCount === 1 )
+                {
+                    this._cardActionHandlerCallback( "tap" );
+                }
+                this._tapCount = 0;
+            }, this._doubleTapWindow );
+        }
+        else if ( this._tapCount === 2 )
+        {
+            clearTimeout( this._doubleTapTimeout );
+            this._doubleTapTimeout = null;
+            this._tapCount = 0;
+            this._cardActionHandlerCallback( "double_tap" );
+        }
+    }
+
+    _movedBeyondThreshold( x, y )
+    {
+        return Math.abs( x - this._startX ) > 10 || Math.abs( y - this._startY ) > 10;
+    }
+
+    _onMove( event )
+    {
+        if ( !this._holdTimeout ) return;
+        if ( this._movedBeyondThreshold( event.touches[ 0 ].clientX, event.touches[ 0 ].clientY ) )
+        {
+            clearTimeout( this._holdTimeout );
+            this._holdTimeout = null;
+            this._removeHoldIndicator();
+        }
+    }
+
+    _onCancel()
+    {
+        if ( this._holdTimeout )
+        {
+            clearTimeout( this._holdTimeout );
+            this._holdTimeout = null;
+        }
+        if ( this._doubleTapTimeout )
+        {
+            clearTimeout( this._doubleTapTimeout );
+            this._doubleTapTimeout = null;
+        }
+        this._removeHoldIndicator();
+        this._holdTriggered = false;
+        this._tapCount = 0;
+        this._isTouch = false;
+    }
+
+    _createHoldIndicator( clientX, clientY, isTouch )
+    {
+        const indicator = document.createElement( 'div' );
+        const size = isTouch ? 100 : 50;
+        indicator.style.cssText = [
+            'position: fixed',
+            `left: ${clientX}px`,
+            `top: ${clientY}px`,
+            `width: ${size}px`,
+            `height: ${size}px`,
+            'border-radius: 50%',
+            'background-color: rgba(255, 255, 255, 0.35)',
+            'pointer-events: none',
+            'transform: translate(-50%, -50%) scale(0)',
+            'transition: transform 200ms ease-out',
+            'z-index: 9999'
+        ].join( '; ' );
+        document.body.appendChild( indicator );
+        requestAnimationFrame( () =>
+        {
+            indicator.style.transform = 'translate(-50%, -50%) scale(1)';
+        } );
+        return indicator;
+    }
+
+    _removeHoldIndicator()
+    {
+        if ( !this._holdIndicator ) return;
+        const indicator = this._holdIndicator;
+        this._holdIndicator = null;
+        indicator.style.transition = 'opacity 150ms ease-out';
+        indicator.style.opacity = '0';
+        setTimeout( () =>
+        {
+            if ( indicator.parentNode ) indicator.parentNode.removeChild( indicator );
+        }, 150 );
+    }
+
+    destroy()
+    {
+        if ( this._holdTimeout )
+        {
+            clearTimeout( this._holdTimeout );
+            this._holdTimeout = null;
+        }
+        if ( this._doubleTapTimeout )
+        {
+            clearTimeout( this._doubleTapTimeout );
+            this._doubleTapTimeout = null;
+        }
+        this._removeHoldIndicator();
+        this._targetElement.removeEventListener( 'touchstart', this._startHandler );
+        this._targetElement.removeEventListener( 'touchend', this._endHandler );
+        this._targetElement.removeEventListener( 'touchcancel', this._cancelHandler );
+        this._targetElement.removeEventListener( 'touchmove', this._moveHandler );
+        this._targetElement.removeEventListener( 'mousedown', this._startHandler );
+        this._targetElement.removeEventListener( 'click', this._endHandler );
+        this._targetElement = null;
+        this._cardActionHandlerCallback = null;
     }
 }
 
