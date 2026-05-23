@@ -1,7 +1,7 @@
 # PhotoFrame
 #### A custom photo frame card for Home Assistant
 
-![Automatic slideshow](docs/images/preview2.gif)
+![Automatic slideshow](docs/images/preview3.gif)
 ![Manual navigation](docs/images/manual-navigation.gif)
 
 # Features
